@@ -85,7 +85,7 @@ jobs:
                      -scheme $(basename ios/*.xcworkspace .xcworkspace) \
                      -configuration Release \
                      -sdk iphonesimulator \
-                     derivedDataPath build
+                     -derivedDataPath build
 
       - name: Zip iOS App
         run: |
