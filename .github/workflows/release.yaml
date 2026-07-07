@@ -101,6 +101,8 @@ jobs:
   release:
     needs: [build-android, build-ios]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download Android Artifact
         uses: actions/download-artifact@v7
