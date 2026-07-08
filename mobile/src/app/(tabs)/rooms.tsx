@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import LiveRooms from "@/components/LiveRooms";
 import { useScheduleData } from "@/hooks/use-schedule-data";
 
-export default function Index() {
+export default function RoomsScreen() {
   const { data, loading, error, refresh } = useScheduleData();
 
   const onRefresh = useCallback(() => {
