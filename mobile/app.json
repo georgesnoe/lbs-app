@@ -25,6 +25,16 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/GoogleSansText-Regular.ttf",
+            "./assets/fonts/GoogleSansText-Medium.ttf",
+            "./assets/fonts/GoogleSansText-Bold.ttf"
+          ]
+        }
       ]
     ],
     "experiments": {
