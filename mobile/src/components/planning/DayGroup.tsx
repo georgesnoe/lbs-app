@@ -27,27 +27,26 @@ export default function DayGroup({ day }: DayGroupProps) {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: "hidden",
-    elevation: 1,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#F2F2F7",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E5EA",
+    paddingVertical: 14,
   },
   headerText: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+    color: "#1C1C1E",
   },
   eventsContainer: {
     padding: 12,
-    gap: 12,
+    paddingTop: 0,
+    gap: 10,
   },
 });

@@ -2,7 +2,6 @@ import { View, Text, StyleSheet } from "react-native";
 import type { ScheduleEvent } from "@/types/schedule";
 import { formatTime, sanitizeTitle } from "@/utils/schedule";
 
-const ACCENT_COLOR = "#0A84FF";
 const WARNING_COLOR = "#FF9F0A";
 const DANGER_COLOR = "#FF453A";
 
@@ -16,27 +15,38 @@ export default function EventCard({ event }: EventCardProps) {
     (event.extendedProps.sessionType === "exam" &&
       event.extendedProps.sessionLabel?.includes("RATTRAPAGE"));
   const isExam = event.extendedProps.sessionType === "exam" && !isRattrapage;
-  const accentColor = isRattrapage
-    ? WARNING_COLOR
-    : isExam
-      ? DANGER_COLOR
-      : ACCENT_COLOR;
 
+  const apiBgColor = event.backgroundColor || "#0A84FF";
+  const apiTextColor = event.textColor || "#0A84FF";
   const sanitizedTitle = sanitizeTitle(event.title);
 
-  return (
-    <View style={styles.card}>
-      {/* Accent bar */}
-      <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
+  /* Convertir une couleur hex en rgba avec opacité pour un fond subtil */
+  const hexToRgba = (hex: string, alpha: number) => {
+    const clean = hex.replace("#", "");
+    const r = parseInt(clean.substring(0, 2), 16);
+    const g = parseInt(clean.substring(2, 4), 16);
+    const b = parseInt(clean.substring(4, 6), 16);
+    if ([r, g, b].some(isNaN)) return `rgba(10, 132, 255, ${alpha})`;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
 
+  return (
+    <View
+      style={[styles.card, { backgroundColor: hexToRgba(apiBgColor, 0.12) }]}
+    >
       <View style={styles.cardContent}>
         {/* Top row: time + badge */}
         <View style={styles.topRow}>
-          <Text style={[styles.time, { color: accentColor }]}>
-            {formatTime(event.start)}
-            <Text style={styles.timeDash}> — </Text>
-            {formatTime(event.end)}
-          </Text>
+          <View
+            style={[
+              styles.timePill,
+              { backgroundColor: hexToRgba(apiBgColor, 0.25) },
+            ]}
+          >
+            <Text style={[styles.time, { color: apiTextColor }]}>
+              {formatTime(event.start)} — {formatTime(event.end)}
+            </Text>
+          </View>
 
           {isRattrapage && (
             <View style={[styles.badge, { backgroundColor: WARNING_COLOR }]}>
@@ -51,7 +61,9 @@ export default function EventCard({ event }: EventCardProps) {
         </View>
 
         {/* Module title */}
-        <Text style={styles.moduleTitle}>{sanitizedTitle}</Text>
+        <Text style={[styles.moduleTitle, { color: apiTextColor }]}>
+          {sanitizedTitle}
+        </Text>
 
         {/* Room + teacher */}
         <View style={styles.detailsRow}>
@@ -72,23 +84,11 @@ export default function EventCard({ event }: EventCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
+    borderRadius: 12,
     overflow: "hidden",
-    elevation: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  accentBar: {
-    width: 4,
-    flexShrink: 0,
   },
   cardContent: {
-    flex: 1,
-    padding: 12,
+    padding: 14,
     gap: 8,
   },
   topRow: {
@@ -97,29 +97,31 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
   },
-  time: {
-    fontSize: 13,
-    fontWeight: "600",
-    flexShrink: 1,
+  timePill: {
+    alignSelf: "flex-start",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  timeDash: {
-    color: "#8E8E93",
+  time: {
+    fontSize: 12,
+    fontWeight: "700",
   },
   badge: {
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   badgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
     textTransform: "uppercase",
     color: "#FFFFFF",
   },
   moduleTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    lineHeight: 18,
+    fontSize: 15,
+    fontWeight: "700",
+    lineHeight: 20,
   },
   detailsRow: {
     flexDirection: "row",
@@ -129,10 +131,10 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 12,
-    color: "#8E8E93",
+    color: "#666670",
   },
   detailSeparator: {
     fontSize: 12,
-    color: "#8E8E93",
+    color: "#666670",
   },
 });
