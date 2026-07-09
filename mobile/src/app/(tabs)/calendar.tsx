@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,60 +8,118 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { Host, Switch, Button, Row, Icon } from "@expo/ui";
 import { useScheduleData } from "@/hooks/use-schedule-data";
+import { useSettings } from "@/hooks/useSettings";
 import { LevelSelector, DayGroup } from "@/components/planning";
 import type { DayGroup as DayGroupType } from "@/types/schedule";
-import { getLevelSchedule, formatDayLabel } from "@/utils/schedule";
-
-interface Level {
-  code: string;
-  label: string;
-}
+import { ALL_LEVELS, hasLevelEvents } from "@/types/levels";
+import { getLevelSchedule, getMonday } from "@/utils/schedule";
+import * as swiftModifier from "@expo/ui/swift-ui/modifiers";
+import * as composeModifier from "@expo/ui/jetpack-compose/modifiers";
 
 export default function CalendarScreen() {
-  const { data, loading, error, refresh } = useScheduleData();
+  const { settings } = useSettings();
+  const [weekOffset, setWeekOffset] = useState(0);
+  const { data, loading, error, refresh } = useScheduleData(weekOffset);
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
+  const [todayOnly, setTodayOnly] = useState(false);
+
+  /* Appliquer le niveau par défaut des réglages au montage */
+  useEffect(() => {
+    if (settings.defaultLevel) {
+      setSelectedLevel(settings.defaultLevel);
+    }
+  }, [settings.defaultLevel]);
 
   const onRefresh = useCallback(() => {
     refresh();
   }, [refresh]);
 
-  /* Extract unique levels from data */
-  const levels = useMemo<Level[]>(() => {
-    const seen = new Map<string, string>();
-    for (const event of data) {
-      const codes = event.extendedProps.levelsCodes.split(", ");
-      const labels = event.extendedProps.levels.split(", ");
-      codes.forEach((code, i) => {
-        const trimmedCode = code.trim();
-        if (!trimmedCode) return;
-        const label = labels[i]?.trim() || trimmedCode;
-        if (!seen.has(trimmedCode)) {
-          seen.set(trimmedCode, label);
-        }
-      });
-    }
-    return Array.from(seen.entries())
-      .map(([code, label]) => ({ code, label }))
-      .sort((a, b) => a.code.localeCompare(b.code));
-  }, [data]);
+  /* Navigation de semaine */
+  const goToPreviousWeek = useCallback(() => {
+    setWeekOffset((prev) => prev - 1);
+  }, []);
+
+  const goToNextWeek = useCallback(() => {
+    setWeekOffset((prev) => prev + 1);
+  }, []);
+
+  const goToCurrentWeek = useCallback(() => {
+    setWeekOffset(0);
+  }, []);
+
+  const isCurrentWeek = weekOffset === 0;
+
+  /* Titre de la semaine affichée */
+  const weekLabel = useMemo(() => {
+    const monday = getMonday(new Date());
+    monday.setDate(monday.getDate() + weekOffset * 7);
+    const sunday = new Date(monday);
+    sunday.setDate(sunday.getDate() + 6);
+    const formatDay = (d: Date) =>
+      `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+    return `${formatDay(monday)} – ${formatDay(sunday)}`;
+  }, [weekOffset]);
+
+  /* Tous les niveaux disponibles (liste statique complète) */
+  const levels = ALL_LEVELS;
+
+  /* Savoir si le niveau sélectionné a des cours cette semaine */
+  const hasEvents = selectedLevel ? hasLevelEvents(data, selectedLevel) : false;
 
   /* Filter events by selected level */
   const filteredEvents = useMemo(() => {
-    if (!selectedLevel) return [];
+    if (!selectedLevel || !hasEvents) return [];
     return getLevelSchedule(data, selectedLevel);
-  }, [data, selectedLevel]);
+  }, [data, selectedLevel, hasEvents]);
 
   /* Group events by day */
   const days = useMemo<DayGroupType[]>(() => {
     if (filteredEvents.length === 0) return [];
 
+    const todayKey = new Date().toISOString().split("T")[0];
+
     const groups = new Map<string, typeof filteredEvents>();
     for (const event of filteredEvents) {
       const key = event.start.split("T")[0];
+      if (todayOnly && key !== todayKey) continue;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(event);
     }
+
+    const DAY_NAMES = [
+      "Dimanche",
+      "Lundi",
+      "Mardi",
+      "Mercredi",
+      "Jeudi",
+      "Vendredi",
+      "Samedi",
+    ];
+    const MONTH_NAMES = [
+      "janvier",
+      "février",
+      "mars",
+      "avril",
+      "mai",
+      "juin",
+      "juillet",
+      "août",
+      "septembre",
+      "octobre",
+      "novembre",
+      "décembre",
+    ];
+    const formatDayLabel = (dateKey: string): string => {
+      const date = new Date(dateKey + "T00:00:00");
+      const dayName = DAY_NAMES[date.getDay()];
+      const dayNum = date.getDate();
+      const monthName = MONTH_NAMES[date.getMonth()];
+      const year = date.getFullYear();
+      return `${dayName} ${dayNum} ${monthName} ${year}`;
+    };
 
     return Array.from(groups.entries())
       .map(([dateKey, events]) => {
@@ -75,7 +133,7 @@ export default function CalendarScreen() {
         };
       })
       .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
-  }, [filteredEvents]);
+  }, [filteredEvents, todayOnly]);
 
   if (loading) {
     return (
@@ -102,16 +160,14 @@ export default function CalendarScreen() {
           <RefreshControl refreshing={false} onRefresh={onRefresh} />
         }
       >
-        {/* Header row */}
-        <View style={styles.headerRow}>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.title}>Mon planning</Text>
-            <Text style={styles.subtitle}>
-              {selectedLevel
-                ? `${days.length} jour${days.length > 1 ? "s" : ""} de cours`
-                : "Sélectionne ton niveau pour voir ton emploi du temps"}
-            </Text>
-          </View>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Mon planning</Text>
+          <Text style={styles.subtitle}>
+            {selectedLevel
+              ? `${days.length} jour${days.length > 1 ? "s" : ""} de cours`
+              : "Sélectionne ton niveau pour voir ton emploi du temps"}
+          </Text>
 
           {levels.length > 0 && (
             <LevelSelector
@@ -121,6 +177,74 @@ export default function CalendarScreen() {
             />
           )}
         </View>
+
+        {/* Week navigation */}
+        {selectedLevel && !todayOnly && (
+          <View style={styles.weekNav}>
+            <Host matchContents>
+              <Button onPress={goToPreviousWeek} variant="outlined">
+                <Icon
+                  name={Icon.select({
+                    android: require("../../../node_modules/@expo/material-symbols/icons/chevron_left.xml"),
+                    ios: "chevron.left",
+                  })}
+                />
+              </Button>
+            </Host>
+
+            <View style={styles.weekLabelContainer}>
+              <Text style={styles.weekLabel}>{weekLabel}</Text>
+              {!isCurrentWeek && (
+                <Host matchContents>
+                  <Button
+                    onPress={goToCurrentWeek}
+                    label="Aujourd'hui"
+                    variant="filled"
+                  />
+                </Host>
+              )}
+            </View>
+
+            <Host matchContents>
+              <Button onPress={goToPreviousWeek} variant="outlined">
+                <Icon
+                  name={Icon.select({
+                    android: require("../../../node_modules/@expo/material-symbols/icons/chevron_right.xml"),
+                    ios: "chevron.right",
+                  })}
+                />
+              </Button>
+            </Host>
+          </View>
+        )}
+
+        {/* Week / Today switch */}
+        {selectedLevel && (
+          <View style={styles.switchRow}>
+            <Text
+              style={[
+                styles.switchLabel,
+                !todayOnly && styles.switchLabelActive,
+              ]}
+            >
+              Semaine
+            </Text>
+            <Host matchContents>
+              <Switch
+                value={todayOnly}
+                onValueChange={(checked) => setTodayOnly(checked)}
+              />
+            </Host>
+            <Text
+              style={[
+                styles.switchLabel,
+                todayOnly && styles.switchLabelActive,
+              ]}
+            >
+              Aujourd'hui
+            </Text>
+          </View>
+        )}
 
         {/* Empty: no level selected */}
         {!selectedLevel && (
@@ -135,7 +259,10 @@ export default function CalendarScreen() {
         {selectedLevel && days.length === 0 && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>
-              Aucun cours cette semaine pour ce niveau
+              {hasEvents
+                ? "Aucun cours" +
+                  (todayOnly ? " aujourd'hui" : " cette semaine")
+                : "Pas de cours disponible cette semaine"}
             </Text>
           </View>
         )}
@@ -179,15 +306,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingHorizontal: 24,
   },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
+  header: {
     gap: 12,
-  },
-  headerTextContainer: {
-    flex: 1,
-    gap: 4,
   },
   title: {
     fontSize: 22,
@@ -196,6 +316,22 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: "#8E8E93",
+  },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 4,
+  },
+  switchLabel: {
+    fontSize: 14,
+    color: "#8E8E93",
+    fontWeight: "500",
+  },
+  switchLabelActive: {
+    color: "#0A84FF",
+    fontWeight: "600",
   },
   emptyState: {
     backgroundColor: "#FFFFFF",
@@ -210,5 +346,28 @@ const styles = StyleSheet.create({
   },
   daysContainer: {
     gap: 16,
+  },
+  weekNav: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 12,
+  },
+  weekArrow: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  weekLabelContainer: {
+    flex: 1,
+    alignItems: "center",
+    gap: 4,
+  },
+  weekLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1C1C1E",
   },
 });
