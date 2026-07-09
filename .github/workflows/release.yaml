@@ -98,7 +98,7 @@ jobs:
         run: |
           cd build/Build/Products/Release-iphonesimulator
           ZIP_NAME="lbs-ios-${{ github.ref_name }}.zip"
-          zip -r "../../../../mobile/${ZIP_NAME}" *.app
+          zip -r "../../../mobile/${ZIP_NAME}" *.app
           echo "iOS artifact renamed to $ZIP_NAME"
 
       - name: Upload iOS Artifact
