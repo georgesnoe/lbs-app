@@ -3,18 +3,14 @@ import {
   View,
   Text,
   FlatList,
+  RefreshControl,
   StyleSheet,
   ActivityIndicator,
+  type RefreshControlProps,
 } from "react-native";
-import {
-  getFreeRooms,
-  getMinutesUntilNextEvent,
-  formatMinutes,
-} from "@/utils/schedule";
+import { getFreeRooms, formatMinutes } from "@/utils/schedule";
 import { sanitizeTitle } from "@/utils/schedule";
 import type { ScheduleEvent } from "@/types/schedule";
-
-const SUCCESS_COLOR = "#30D158";
 
 interface NextEvent {
   title: string;
@@ -31,7 +27,7 @@ interface LiveRoomsProps {
   data: ScheduleEvent[];
   loading: boolean;
   error: string | null;
-  refreshControl?: React.ReactElement;
+  refreshControl?: React.ReactElement<RefreshControlProps>;
 }
 
 export default function LiveRooms({
@@ -52,36 +48,45 @@ export default function LiveRooms({
   const rooms = useMemo<RoomCard[]>(() => {
     if (data.length === 0) return [];
 
-    const freeRooms = getFreeRooms(data, now, now);
+    const nowMs = now.getTime();
+    const todayStr = now.toISOString().split("T")[0];
+
+    /* Après 21h30 → toutes les salles sont libres, plus de "prochain cours" */
+    const isAfterClosing = now.getHours() >= 21 && now.getMinutes() >= 30;
+
+    /* Événements en cours maintenant (couvre une fenêtre de 2h) */
+    const currentFrom = new Date(nowMs - 2 * 60 * 60 * 1000);
+    const freeRooms = getFreeRooms(data, currentFrom, now);
 
     return freeRooms
       .map((room) => {
-        const minutesUntil = getMinutesUntilNextEvent(data, room.name, now);
-
-        let nextEvent: NextEvent | null = null;
-        if (minutesUntil !== null) {
-          const nextEvents = data
-            .filter(
-              (e) =>
-                e.extendedProps.room === room.name &&
-                new Date(e.start).getTime() > now.getTime(),
-            )
-            .sort(
-              (a, b) =>
-                new Date(a.start).getTime() - new Date(b.start).getTime(),
-            );
-          if (nextEvents.length > 0) {
-            nextEvent = { title: nextEvents[0].title, minutesUntil };
-          }
+        if (isAfterClosing) {
+          return { name: room.name, capacity: room.capacity, nextEvent: null };
         }
 
-        return {
-          name: room.name,
-          capacity: room.capacity,
-          nextEvent,
-        };
+        /* Prochains événements du jour uniquement */
+        const todayEvents = data
+          .filter(
+            (e) =>
+              e.extendedProps.room === room.name &&
+              e.start.startsWith(todayStr) &&
+              new Date(e.start).getTime() > nowMs,
+          )
+          .sort(
+            (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime(),
+          );
+
+        let nextEvent: NextEvent | null = null;
+        if (todayEvents.length > 0) {
+          const minutesUntil = Math.ceil(
+            (new Date(todayEvents[0].start).getTime() - nowMs) / 60_000,
+          );
+          nextEvent = { title: todayEvents[0].title, minutesUntil };
+        }
+
+        return { name: room.name, capacity: room.capacity, nextEvent };
       })
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
   }, [data, now]);
 
   if (loading) {
@@ -127,26 +132,12 @@ export default function LiveRooms({
           </View>
         }
         renderItem={({ item: room }) => (
-          <View style={styles.card}>
-            {/* Accent bar — vert pour "libre" */}
-            <View
-              style={[styles.accentBar, { backgroundColor: SUCCESS_COLOR }]}
-            />
-
+          <View style={[styles.card, { backgroundColor: "#EAF9EE" }]}>
             <View style={styles.cardContent}>
-              {/* Top row: name + badge */}
-              <View style={styles.topRow}>
-                <Text style={styles.roomName} numberOfLines={1}>
-                  {room.name}
-                </Text>
-                <View
-                  style={[styles.badge, { backgroundColor: SUCCESS_COLOR }]}
-                >
-                  <Text style={styles.badgeText}>Libre</Text>
-                </View>
-              </View>
+              <Text style={styles.roomName} numberOfLines={1}>
+                {room.name}
+              </Text>
 
-              {/* Capacity */}
               <Text style={styles.capacity}>{room.capacity} places</Text>
 
               {/* Next event or no-event indicator */}
@@ -156,7 +147,8 @@ export default function LiveRooms({
                     {sanitizeTitle(room.nextEvent.title)}
                   </Text>
                   <Text style={styles.nextEventTime}>
-                    Dans {formatMinutes(room.nextEvent.minutesUntil)}
+                    Prochain cours dans{" "}
+                    {formatMinutes(room.nextEvent.minutesUntil)}
                   </Text>
                 </View>
               ) : (
@@ -231,64 +223,45 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    borderRadius: 10,
+    borderRadius: 12,
     overflow: "hidden",
-    elevation: 1,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  accentBar: {
-    height: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
   cardContent: {
-    padding: 12,
+    padding: 14,
     gap: 8,
   },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 6,
-  },
   roomName: {
-    fontSize: 14,
-    fontWeight: "600",
-    flexShrink: 1,
-  },
-  badge: {
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  badgeText: {
-    fontSize: 10,
+    fontSize: 15,
     fontWeight: "700",
-    textTransform: "uppercase",
-    color: "#FFFFFF",
+    color: "#1C1C1E",
   },
   capacity: {
     fontSize: 12,
-    color: "#8E8E93",
+    color: "#666670",
   },
   nextEventContainer: {
-    backgroundColor: "#F2F2F7",
+    backgroundColor: "rgba(48, 209, 88, 0.15)",
     borderRadius: 8,
-    padding: 8,
-    gap: 2,
+    padding: 10,
+    gap: 3,
   },
   nextEventTitle: {
     fontSize: 12,
     fontWeight: "600",
+    color: "#1C1C1E",
   },
   nextEventTime: {
     fontSize: 11,
-    fontWeight: "500",
-    color: "#0A84FF",
+    fontWeight: "600",
+    color: "#30D158",
   },
   noEventText: {
     fontSize: 11,
-    color: "#8E8E93",
+    color: "#666670",
   },
 });
