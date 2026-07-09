@@ -1,57 +1,32 @@
-import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { NativeTabs } from "expo-router/build/native-tabs";
 
 export default function TabsLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarLabelStyle: {
-          fontFamily: "GoogleSansText",
-          fontWeight: 700,
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="calendar"
-        options={{
-          title: "Planning",
-          tabBarIcon: ({ color, size, focused }) =>
-            focused ? (
-              <Ionicons name="calendar-number" size={size} color={color} />
-            ) : (
-              <Ionicons
-                name="calendar-number-outline"
-                size={size}
-                color={color}
-              />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="rooms"
-        options={{
-          title: "Salles",
-          tabBarIcon: ({ color, size, focused }) =>
-            focused ? (
-              <Ionicons name="business" size={size} color={color} />
-            ) : (
-              <Ionicons name="business-outline" size={size} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Paramètres",
-          tabBarIcon: ({ color, size, focused }) =>
-            focused ? (
-              <Ionicons name="settings-sharp" size={size} color={color} />
-            ) : (
-              <Ionicons name="settings-outline" size={size} color={color} />
-            ),
-        }}
-      />
-    </Tabs>
+    <NativeTabs>
+      <NativeTabs.Trigger name="calendar">
+        <NativeTabs.Trigger.Label>Planning</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "calendar.circle", selected: "calendar.circle.fill" }}
+          md="calendar_clock"
+        />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="rooms">
+        <NativeTabs.Trigger.Label>Salles</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{
+            default: "building.columns",
+            selected: "building.columns.fill",
+          }}
+          md="meeting_room"
+        />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="settings">
+        <NativeTabs.Trigger.Label>Paramètres</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "gear.circle", selected: "gear.circle.fill" }}
+          md="settings"
+        />
+      </NativeTabs.Trigger>
+    </NativeTabs>
   );
 }
