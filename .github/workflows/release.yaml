@@ -46,7 +46,7 @@ jobs:
         run: |
           APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
           NEW_NAME="lbs-android-${{ github.ref_name }}.apk"
-          mv "$APK_PATH" "../${NEW_NAME}"
+          mv "$APK_PATH" "$NEW_NAME"
           echo "APK renamed to $NEW_NAME"
 
       - name: Upload Android Artifact
