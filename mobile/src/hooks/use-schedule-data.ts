@@ -9,7 +9,7 @@ interface UseScheduleDataResult {
   refresh: () => void;
 }
 
-export function useScheduleData(): UseScheduleDataResult {
+export function useScheduleData(weekOffset: number = 0): UseScheduleDataResult {
   const [data, setData] = useState<ScheduleEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +26,7 @@ export function useScheduleData(): UseScheduleDataResult {
 
     async function fetchData() {
       try {
-        const url = getScheduleApiUrl();
+        const url = getScheduleApiUrl(weekOffset);
         const res = await fetch(url);
         if (!res.ok) throw new Error(`Erreur ${res.status}`);
         const json: ScheduleEvent[] = await res.json();
@@ -48,7 +48,7 @@ export function useScheduleData(): UseScheduleDataResult {
     return () => {
       cancelled = true;
     };
-  }, [refreshKey]);
+  }, [refreshKey, weekOffset]);
 
   return { data, loading, error, refresh };
 }

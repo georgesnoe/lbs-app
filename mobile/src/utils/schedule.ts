@@ -93,16 +93,18 @@ export function getLevelSchedule(
   levelCode: string,
 ): ScheduleEvent[] {
   return schedules.filter((event) =>
-    event.extendedProps.levelsCodes.split(", ").includes(levelCode),
+    (event.extendedProps.levelsCodes ?? "").split(", ").includes(levelCode),
   );
 }
 
 /**
  * Build the API URL for the current week.
+ * @param weekOffset Décalage en semaines (0 = courant, 1 = suivante, -1 = précédente, etc.)
  */
-export function getScheduleApiUrl(): string {
+export function getScheduleApiUrl(weekOffset: number = 0): string {
   const today = new Date();
   const monday = getMonday(today);
+  monday.setDate(monday.getDate() + weekOffset * 7);
   const sunday = new Date(monday);
   sunday.setDate(sunday.getDate() + 6);
 
@@ -116,14 +118,27 @@ export function getScheduleApiUrl(): string {
 
 /**
  * Extract the list of unique rooms from the schedule data.
+ * Utilise le nom de la salle comme clé pour éviter les doublons,
+ * même si un même événement référence plusieurs salles.
  */
 export function getRooms(schedules: ScheduleEvent[]): RoomInfo[] {
-  const seen = new Map<number, RoomInfo>();
+  const seen = new Map<string, RoomInfo>();
 
   for (const event of schedules) {
-    const { roomId, room, roomCapacity } = event.extendedProps;
-    if (!seen.has(roomId)) {
-      seen.set(roomId, { name: room, id: roomId, capacity: roomCapacity });
+    const { rooms, room, roomId, roomCapacity } = event.extendedProps;
+
+    /* L'API peut lister plusieurs salles pour un même cours */
+    const roomList = rooms && rooms.length > 0 ? rooms : room ? [room] : [];
+
+    for (const roomName of roomList) {
+      if (!roomName) continue;
+      if (!seen.has(roomName)) {
+        seen.set(roomName, {
+          name: roomName,
+          id: roomId,
+          capacity: roomCapacity,
+        });
+      }
     }
   }
 
@@ -150,6 +165,7 @@ export function getEventsInRange(
 
 /**
  * Return all rooms that have no events in the given time window.
+ * Prend en compte que chaque événement peut occuper plusieurs salles.
  */
 export function getFreeRooms(
   schedules: ScheduleEvent[],
@@ -157,10 +173,19 @@ export function getFreeRooms(
   to: Date,
 ): RoomInfo[] {
   const allRooms = getRooms(schedules);
-  const busyIds = new Set(
-    getEventsInRange(schedules, from, to).map((e) => e.extendedProps.roomId),
-  );
-  return allRooms.filter((r) => !busyIds.has(r.id));
+  const busyNames = new Set<string>();
+
+  for (const event of getEventsInRange(schedules, from, to)) {
+    const ep = event.extendedProps;
+    /* Marquer toutes les salles de l'événement comme occupées */
+    const eventRooms =
+      ep.rooms && ep.rooms.length > 0 ? ep.rooms : ep.room ? [ep.room] : [];
+    for (const r of eventRooms) {
+      if (r) busyNames.add(r);
+    }
+  }
+
+  return allRooms.filter((r) => !busyNames.has(r.name));
 }
 
 /**
