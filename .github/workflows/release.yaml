@@ -50,7 +50,7 @@ jobs:
             -Dorg.gradle.jvmargs="-Xmx5g" \
             -Dorg.gradle.parallel=true \
             -Dorg.gradle.caching=true \
-            --vfs-watch
+            -Dorg.gradle.vfs.watch=true
 
       - name: Rename Android Artifact
         run: |
