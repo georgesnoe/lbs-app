@@ -9,6 +9,8 @@ on:
 jobs:
   build-android:
     runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: "--max-old-space-size=4096"
     defaults:
       run:
         working-directory: ./mobile
@@ -40,7 +42,15 @@ jobs:
       - name: Build Android Release (APK)
         run: |
           cd android
-          ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a -PenableProguardInReleaseBuilds=true -PenableShrinkResourcesInReleaseBuilds=true -Dorg.gradle.jvmargs=-Xmx4g -PonlyIncludedeDefaultMonoFont=true
+          ./gradlew assembleRelease \
+            -PreactNativeArchitectures=arm64-v8a \
+            -PenableProguardInReleaseBuilds=true \
+            -PenableShrinkResourcesInReleaseBuilds=true \
+            -PonlyIncludedeDefaultMonoFont=true \
+            -Dorg.gradle.jvmargs="-Xmx5g" \
+            -Dorg.gradle.parallel=true \
+            -Dorg.gradle.caching=true \
+            --vfs-watch
 
       - name: Rename Android Artifact
         run: |
@@ -57,6 +67,8 @@ jobs:
 
   build-ios:
     runs-on: macos-latest
+    env:
+      NODE_OPTIONS: "--max-old-space-size=4096"
     defaults:
       run:
         working-directory: ./mobile
@@ -92,7 +104,12 @@ jobs:
                      -scheme $(basename ios/*.xcworkspace .xcworkspace) \
                      -configuration Release \
                      -sdk iphonesimulator \
-                     -derivedDataPath build
+                     -derivedDataPath build \
+                     ONLY_ACTIVE_ARCH=YES \
+                     DEBUG_INFORMATION_FORMAT=dwarf \
+                     COMPILER_INDEX_STORE_ENABLE=NO \
+                     PRC_MAX_CONCURRENT_BUILD_TASKS=3 \
+                     -parallelizeTargets
 
       - name: Rename and Zip iOS App
         run: |
