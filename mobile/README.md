@@ -1,56 +1,157 @@
-# Welcome to your Expo app 👋
+# LBS Mobile — Lomé Business School
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Mobile schedule management and room availability app for **Lomé Business School**, built with **Expo SDK 57** and **React Native 0.86**.
 
-## Get started
+## Tech Stack
 
-1. Install dependencies
+| Technology                                                                     | Version | Usage                                                           |
+| ------------------------------------------------------------------------------ | ------- | --------------------------------------------------------------- |
+| [Expo](https://expo.dev)                                                       | SDK 57  | React Native framework                                          |
+| [Expo Router](https://docs.expo.dev/router/introduction/)                      | ~57.0.4 | File-based routing                                              |
+| [@expo/ui](https://docs.expo.dev/ui/introduction/)                             | ~57.0.4 | Native cross-platform components (Host, Picker, Switch, Button) |
+| [@expo/vector-icons](https://docs.expo.dev/guides/icons/)                      | ^15.0.2 | Ionicons                                                        |
+| [AsyncStorage](https://react-native-async-storage.github.io/async-storage/)    | 2.2.0   | Settings persistence                                            |
+| [expo-notifications](https://docs.expo.dev/versions/latest/sdk/notifications/) | ~57.0.3 | Push notifications                                              |
+| TypeScript                                                                     | ~6.0    | Strict typing                                                   |
 
-   ```bash
-   npm install
-   ```
+## Architecture
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+src/
+├── app/                     # Pages (Expo Router)
+│   ├── _layout.tsx          # Root layout (Stack)
+│   ├── index.tsx            # Redirect → /(tabs)/calendar
+│   └── (tabs)/
+│       ├── _layout.tsx      # Tab navigation (NativeTabs)
+│       ├── calendar.tsx     # Schedule screen
+│       ├── rooms.tsx        # Available rooms screen
+│       └── settings.tsx     # Settings screen
+├── components/
+│   ├── LiveRooms.tsx        # Real-time free room list
+│   └── planning/
+│       ├── index.ts         # Barrel exports
+│       ├── DayGroup.tsx     # Day-grouped events
+│       ├── EventCard.tsx    # Individual event card (API colors)
+│       └── LevelSelector.tsx# Level picker (native Picker)
+├── hooks/
+│   ├── use-schedule-data.ts # Fetches schedule data from API
+│   └── useSettings.ts       # Settings management (AsyncStorage)
+├── types/
+│   ├── schedule.ts          # ScheduleEvent, RoomInfo, DayGroup types
+│   ├── settings.ts          # AppSettings interface + defaults
+│   └── levels.ts            # Static ALL_LEVELS list + hasLevelEvents helper
+└── utils/
+    └── schedule.ts          # Utility functions (dates, API, rooms)
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Features
 
-### Other setup steps
+### 📅 Schedule (`calendar.tsx`)
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+- Level selection across 23 levels (Bachelor 1 to Master 2)
+- Weekly navigation with ← → arrow buttons
+- "Today" button to jump back to the current week
+- **Week / Today** toggle switch
+- Pull-to-refresh
+- Dynamic course colors from the API (`backgroundColor` / `textColor` fields)
 
-## Learn more
+### 🏫 Available Rooms (`LiveRooms.tsx`)
 
-To learn more about developing your project with Expo, look at the following resources:
+- Real-time free room list (refreshes every 10 seconds)
+- Multi-room event detection for shared courses
+- Auto-filter after 9:30 PM (all rooms shown as free)
+- Next course limited to the current day only
+- 2-column grid layout
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### ⚙️ Settings (`settings.tsx`)
 
-## Join the community
+- **Navigation style**: Arrows / Week picker / Both
+- **Free navigation**: on/off toggle
+- **Default level**: auto-selected on app launch
+- **Notifications**: enable/disable
 
-Join our community of developers creating universal apps.
+## API
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+**Base URL**: `https://allnone.lome-bs.com/planning-view/student/schedules`
+
+**Query parameters**:
+
+- `start` — Start date (YYYY-MM-DD, Monday of the week)
+- `end` — End date (YYYY-MM-DD, Sunday of the week)
+
+The `useScheduleData` hook accepts a `weekOffset` parameter for week navigation.
+
+### Event structure (ScheduleEvent)
+
+| Field                       | Type                            | Description                                |
+| --------------------------- | ------------------------------- | ------------------------------------------ |
+| `id`                        | `string`                        | Unique identifier                          |
+| `title`                     | `string`                        | Course title                               |
+| `start` / `end`             | `string`                        | ISO 8601                                   |
+| `backgroundColor`           | `string`                        | Background color (hex) — used in EventCard |
+| `textColor`                 | `string`                        | Text color (hex)                           |
+| `extendedProps.room`        | `string`                        | Primary room                               |
+| `extendedProps.rooms`       | `string[]`                      | All rooms for this event                   |
+| `extendedProps.levelsCodes` | `string`                        | Level codes separated by ", "              |
+| `extendedProps.sessionType` | `"course" \| "resit" \| "exam"` | Session type                               |
+| `extendedProps.teacher`     | `string`                        | Teacher name                               |
+
+## Installation
+
+```bash
+cd mobile
+npm install
+npx expo start
+```
+
+Launch on a specific device:
+
+```bash
+npx expo start --android     # Android
+npx expo start --ios         # iOS (macOS required)
+npx expo start --web         # Web
+```
+
+## Build
+
+```bash
+# Android
+npx expo run:android --variant release
+
+# iOS
+npx expo run:ios --configuration Release
+```
+
+Automated builds are triggered via GitHub Actions on `v*` and `v*-nightly` tags (see `.github/workflows/release.yaml`).
+
+## Available Scripts
+
+| Script            | Description           |
+| ----------------- | --------------------- |
+| `npm start`       | Start Expo dev server |
+| `npm run android` | Launch on Android     |
+| `npm run ios`     | Launch on iOS         |
+| `npm run web`     | Launch in browser     |
+| `npm run lint`    | Lint code with ESLint |
+
+## Theme & Styles
+
+- Background: `#F2F2F7` (iOS light gray)
+- Cards: white background, rounded corners (`borderRadius: 12`), subtle shadow
+- Accent: `#0A84FF` (iOS blue)
+- API colors: dynamically used for course cards (12% opacity background, 25% opacity time pill)
+
+## Persistence
+
+Settings are stored in AsyncStorage under the key `@lbs/settings` and persist:
+
+- Default level
+- Navigation style
+- Notification state
+- Theme preference
+
+## Key Configuration Files
+
+- `app.json` — App name, slug, icons, plugins (splash screen, fonts)
+- `tsconfig.json` — Path aliases (`@/` → `./src/`, `@/assets/` → `./assets/`)
+- `expo-env.d.ts` — Generated types for Expo Router routes
