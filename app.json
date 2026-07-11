@@ -1,16 +1,14 @@
 {
   "expo": {
-    "name": "LBS",
-    "slug": "lbs",
+    "name": "AllnOne",
+    "slug": "allnone",
+    "scheme": "allnone",
     "version": "0.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
-    "ios": {
-      "supportsTablet": true
-    },
     "android": {
-      "package": "com.lomebs",
+      "package": "com.lomebs.allnone",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -20,7 +18,8 @@
       "predictiveBackGestureEnabled": false
     },
     "ios": {
-      "bundleIdentifier": "com.lomebs"
+      "bundleIdentifier": "com.lomebs.allnone",
+      "supportsTablet": true
     },
     "web": {
       "output": "server",
